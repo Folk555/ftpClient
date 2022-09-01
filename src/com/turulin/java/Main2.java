@@ -4,21 +4,21 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Scanner;
 
-public class Main {
+public class Main2 {
 
-    //private static String file = "students.txt";
-    private static String file = "students.tx";
+    private static String file = "students.txt";
     private static Scanner scanner = new Scanner(System.in);
-    private static UserFtpClient userFtpClient = null;
+    private static StudentJSONFileEditor studentJSONFile;
+    private static FTPSocketClient ftp = null;
     private static String command;
 
     public static void main(String[] args) throws Exception {
         System.out.println("FTP клиент.");
-        while (userFtpClient == null) {
+        while (ftp == null) {
             if (args.length == 3) {
                 System.out.println("Попытка подключения");
                 try {
-                    userFtpClient = new UserFtpClient(args[0], args[1], args[2]);
+                    ftp = new FTPSocketClient(args[2], args[0], args[1]);
                 } catch (NotExpectedResponseStatusException e) {
                     System.out.println(e.getMessage());
                     System.out.println("Повторите ввод: [ЛОГИН] [ПОРОЛЬ] [IP_FTP_СЕРВЕРА]");
@@ -40,22 +40,21 @@ public class Main {
 
         System.out.println("Режим обмена с FTP сервером по умолчанию активный. Желаете изменить на пассивный? д/н");
         if ("д".equalsIgnoreCase(scanner.nextLine())) {
-            userFtpClient.passiveMode();
+            ftp.activePASVMode();
             System.out.println("Выбран пассивный режим");
         } else {
             System.out.println("Выбран активный режим");
         }
 
-
-        boolean idDownloadCorrectly = false;
-        while (!idDownloadCorrectly)
+        while (studentJSONFile == null)
             try {
                 System.out.println("Укажите файл на FTP сервере: ");
-                userFtpClient.downloadFile(scanner.nextLine());
-                idDownloadCorrectly = true;
-            } catch (NotExpectedResponseStatusException e) {
+                studentJSONFile = new StudentJSONFileEditor(ftp.downloadFileIntoTempFile(scanner.nextLine()));
+            } catch (
+                    NotExpectedResponseStatusException e) {
                 System.out.println(e.getMessage());
-            } catch (Exception e) {
+            } catch (
+                    Exception e) {
                 e.printStackTrace();
                 return;
             }
@@ -74,7 +73,7 @@ public class Main {
             }
             switch (mainCmd) {
                 case stdall: {
-                    userFtpClient.getCacheStudents().forEach((key, value) -> System.out.println(value));
+                    studentJSONFile.getCacheStudents().forEach((key, value) -> System.out.println(value));
                     break;
                 }
                 case getstd: {
@@ -83,7 +82,7 @@ public class Main {
                         break;
                     }
                     try {
-                        System.out.println(userFtpClient.getStudentById(Integer.valueOf(commandWords[1])));
+                        System.out.println(studentJSONFile.getStudentById(Integer.valueOf(commandWords[1])));
                     } catch (NumberFormatException e) {
                         System.out.println("Error id format");
                     } catch (NullPointerException e) {
@@ -96,7 +95,7 @@ public class Main {
                         System.out.println("Missing argument");
                         break;
                     }
-                    userFtpClient.addStudent(new Student(0, commandWords[1]));
+                    studentJSONFile.addStudent(new Student(0, commandWords[1]));
                     break;
                 }
                 case rmstd: {
@@ -105,7 +104,7 @@ public class Main {
                         break;
                     }
                     try {
-                        userFtpClient.removeStudentById(Integer.valueOf(commandWords[1]));
+                        studentJSONFile.removeStudentById(Integer.valueOf(commandWords[1]));
                     } catch (NullPointerException e) {
                         System.out.println(e.getMessage());
                     } catch (NumberFormatException e) {
@@ -114,12 +113,13 @@ public class Main {
                     break;
                 }
                 case quite: {
+                    studentJSONFile.updateJSONFile();
                     try {
-                        userFtpClient.updateFile();
+                        ftp.updateRemoteFileByTempFile();
                     } catch (NotExpectedResponseStatusException e) {
                         System.out.println(e.getMessage());
                     }
-                    userFtpClient.close();
+                    ftp.close();
                     break;
                 }
             }
